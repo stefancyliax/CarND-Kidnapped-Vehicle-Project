@@ -20,11 +20,39 @@
 using namespace std;
 
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
-	// TODO: Set the number of particles. Initialize all particles to first position (based on estimates of 
+	// Set the number of particles. Initialize all particles to first position (based on estimates of 
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 
+	default_random_engine gen; 
+	num_particles = 1;
+
+	// This line creates a normal (Gaussian) distribution for x
+	normal_distribution<double> dist_x(x, std[0]);
+	normal_distribution<double> dist_y(y, std[1]);
+	normal_distribution<double> dist_theta(theta, std[2]);
+	
+	for (int i = 0; i < num_particles; i++) {
+		
+		Particle particle;
+		particle.id = i;
+		particle.x = dist_x(gen);
+		particle.y = dist_y(gen);
+		particle.theta = dist_theta(gen);
+		particle.weight = 1.0;
+
+		particles.push_back(particle);
+		weights.push_back(1);
+		 
+		 // Print your samples to the terminal.
+		 cout << "Sample " << i + 1 << " x: " << particle.x << " y: " << particle.y << endl;
+	
+	}
+	is_initialized = true;
+	cout << "Init finished with " << num_particles << " Particles."<< endl;
+
+	return;
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
@@ -32,7 +60,38 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
+	default_random_engine gen;
 
+
+	for (int i = 0; i < num_particles; i++) {
+		cout << particles[i].x << " " << particles[i].y << endl;
+		
+		double x = particles[i].x;
+		double y = particles[i].y;
+		double theta = particles[i].theta;
+
+		if (yaw_rate == 0) {
+			x = x + velocity * delta_t * cos(theta);
+			y = y + velocity * delta_t * sin(theta);
+			// theta stays the same
+		}
+		else {
+			x = x + velocity/yaw_rate*(sin(theta + yaw_rate*delta_t) - sin(theta));
+			y = y + velocity/yaw_rate*(cos(theta) + cos(theta + yaw_rate*delta_t));
+			theta = theta + yaw_rate * delta_t;
+		}
+
+		// add in Gaussian noise
+		normal_distribution<double> dist_x(x, std_pos[0]);
+		normal_distribution<double> dist_y(y, std_pos[1]);
+		normal_distribution<double> dist_theta(theta, std_pos[2]);
+
+		particles[i].x = dist_x(gen);
+		particles[i].y = dist_y(gen);
+		particles[i].theta = dist_theta(gen);
+
+		cout << "after " << particles[i].x << " " << particles[i].y << endl;
+	}
 }
 
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
@@ -61,6 +120,8 @@ void ParticleFilter::resample() {
 	// TODO: Resample particles with replacement with probability proportional to their weight. 
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
+
+
 
 }
 
