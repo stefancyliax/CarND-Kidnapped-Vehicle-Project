@@ -27,7 +27,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[])
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 
 	default_random_engine gen;
-	num_particles = 1;
+	num_particles = 100;
 
 	// This line creates a normal (Gaussian) distribution for x
 	normal_distribution<double> dist_x(x, std[0]);
@@ -48,12 +48,9 @@ void ParticleFilter::init(double x, double y, double theta, double std[])
 		weights.push_back(1);
 
 		// Print your samples to the terminal.
-		cout << "Sample " << i + 1 << " x: " << particle.x << " y: " << particle.y << endl;
 	}
 	is_initialized = true;
-	cout << "Init finished with " << num_particles << " Particles." << endl;
 
-	return;
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate)
@@ -64,16 +61,16 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
 	default_random_engine gen;
 
+
 	for (int i = 0; i < num_particles; i++)
 	{
-		//cout << particles[i].x << " " << particles[i].y << endl;
 
 		double x = particles[i].x;
 		double y = particles[i].y;
 		double theta = particles[i].theta;
 
 		// control update using given velocity and yaw rate
-		if (yaw_rate == 0)
+		if (fabs(yaw_rate) < 0.0001)
 		{
 			x = x + velocity * delta_t * cos(theta);
 			y = y + velocity * delta_t * sin(theta);
@@ -82,7 +79,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 		else
 		{
 			x = x + velocity / yaw_rate * (sin(theta + yaw_rate * delta_t) - sin(theta));
-			y = y + velocity / yaw_rate * (cos(theta) + cos(theta + yaw_rate * delta_t));
+			y = y + velocity / yaw_rate * (cos(theta) - cos(theta + yaw_rate * delta_t));
 			theta = theta + yaw_rate * delta_t;
 		}
 
@@ -95,7 +92,6 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 		particles[i].y = dist_y(gen);
 		particles[i].theta = dist_theta(gen);
 
-		//cout << "after " << particles[i].x << " " << particles[i].y << endl;
 	}
 }
 
@@ -121,19 +117,19 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   3.33
 	//   http://planning.cs.uiuc.edu/node99.html
 
-	cout << "Found " << observations.size() << " Observations and are using " << num_particles << " Particles." << endl;
-	cout << "Landmarks: " << map_landmarks.landmark_list.size() << ". Example: " << map_landmarks.landmark_list[0].x_f << ", " << map_landmarks.landmark_list[0].y_f << endl;
-
 	for (int i = 0; i < num_particles; i++)
 	{
 		particles[i].weight = 1.0;
+		vector<int> associations;
+		vector<double> sense_x;
+		vector<double> sense_y;
+		double x = particles[i].x;
+		double y = particles[i].y;
+		double theta = particles[i].theta;
+
 		for (int n = 0; n < observations.size(); n++)
 		{
 			//assume observations are from particle and transform coordinates to map coordinates
-			double x = particles[i].x;
-			double y = particles[i].y;
-			double theta = particles[i].theta;
-			cout << "Working on observation " << n << " that is " << observations[n].x << "," << observations[n].y << endl;
 			double x_map = x + cos(theta) * observations[n].x - sin(theta) * observations[n].y;
 			double y_map = y + sin(theta) * observations[n].x + cos(theta) * observations[n].y;
 
@@ -154,14 +150,14 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 					}
 				}
 			}
-			cout << "Transformed observation:" << x_map << ", " << y_map << ". Associated landmark ID: " << nearest_id << " ("
-				 << map_landmarks.landmark_list[nearest_id].id_i << ") " << " with coordinates "				 
-				 << map_landmarks.landmark_list[nearest_id].x_f << ", " << map_landmarks.landmark_list[nearest_id].y_f << endl;
+			// cout << "Transformed observation:" << x_map << ", " << y_map << ". Associated landmark ID: " << nearest_id << " ("
+			// 	 << map_landmarks.landmark_list[nearest_id].id_i << ") " << " with coordinates "				 
+			// 	 << map_landmarks.landmark_list[nearest_id].x_f << ", " << map_landmarks.landmark_list[nearest_id].y_f << endl;
 
 			// add to particle struct
-			particles[i].associations.push_back(map_landmarks.landmark_list[nearest_id].id_i);
-			particles[i].sense_x.push_back(x_map);
-			particles[i].sense_y.push_back(y_map);
+			associations.push_back(map_landmarks.landmark_list[nearest_id].id_i);
+			sense_x.push_back(x_map);
+			sense_y.push_back(y_map);
 
 			// update weight of particle
 			double diff_x = x_map - map_landmarks.landmark_list[nearest_id].x_f;
@@ -180,6 +176,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 			particles[i].weight *= gauss_norm * exp(-exponent);
 		}
 		weights[i] = particles[i].weight;
+		particles[i] = SetAssociations(particles[i], associations, sense_x, sense_y);
 	}
 }
 
