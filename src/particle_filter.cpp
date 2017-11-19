@@ -29,11 +29,12 @@ void ParticleFilter::init(double x, double y, double theta, double std[])
 	default_random_engine gen;
 	num_particles = 100;
 
-	// This line creates a normal (Gaussian) distribution for x
+	// Create Gaussian distributions
 	normal_distribution<double> dist_x(x, std[0]);
 	normal_distribution<double> dist_y(y, std[1]);
 	normal_distribution<double> dist_theta(theta, std[2]);
 
+	// generate num_particles of new particles
 	for (int i = 0; i < num_particles; i++)
 	{
 
@@ -44,10 +45,9 @@ void ParticleFilter::init(double x, double y, double theta, double std[])
 		particle.theta = dist_theta(gen);
 		particle.weight = 1.0;
 
+		// add particle to vector of all particles
 		particles.push_back(particle);
 		weights.push_back(1);
-
-		// Print your samples to the terminal.
 	}
 	is_initialized = true;
 
@@ -61,10 +61,9 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
 	default_random_engine gen;
 
-
+	// loop over all particles and update them with given velocity and yaw rate
 	for (int i = 0; i < num_particles; i++)
 	{
-
 		double x = particles[i].x;
 		double y = particles[i].y;
 		double theta = particles[i].theta;
@@ -88,6 +87,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 		normal_distribution<double> dist_y(y, std_pos[1]);
 		normal_distribution<double> dist_theta(theta, std_pos[2]);
 
+		// update particle
 		particles[i].x = dist_x(gen);
 		particles[i].y = dist_y(gen);
 		particles[i].theta = dist_theta(gen);
@@ -106,7 +106,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 								   const std::vector<LandmarkObs> &observations, const Map &map_landmarks)
 {
-	// TODO: Update the weights of each particle using a mult-variate Gaussian distribution. You can read
+	// Update the weights of each particle using a mult-variate Gaussian distribution. You can read
 	//   more about this distribution here: https://en.wikipedia.org/wiki/Multivariate_normal_distribution
 	// NOTE: The observations are given in the VEHICLE'S coordinate system. Your particles are located
 	//   according to the MAP'S coordinate system. You will need to transform between the two systems.
@@ -116,17 +116,29 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   and the following is a good resource for the actual equation to implement (look at equation
 	//   3.33
 	//   http://planning.cs.uiuc.edu/node99.html
+	
+	// Basic algorithm:
+	// For every observation and for every particle
+	// 1. transform observed coordinates to map coordinates assuming that they are observed from the particles position.
+	// 2. find associate landmark using nearest neighbor 
+	// 3. update weights
 
 	for (int i = 0; i < num_particles; i++)
 	{
+		// reset particle weight
 		particles[i].weight = 1.0;
+
+		// placeholder for associations and observation 
 		vector<int> associations;
 		vector<double> sense_x;
 		vector<double> sense_y;
+
+		// particle values to be used
 		double x = particles[i].x;
 		double y = particles[i].y;
 		double theta = particles[i].theta;
 
+		// loop over all observations
 		for (int n = 0; n < observations.size(); n++)
 		{
 			//assume observations are from particle and transform coordinates to map coordinates
